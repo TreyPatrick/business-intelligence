@@ -1,2 +1,10 @@
 # business-intelligence
-Work from ISA classes in senior year at Miami University
+Fall repo for in class code
+
+\## Tools
+
+* Git
+* *GitHub
+* *R
+* 
+

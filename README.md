@@ -1,10 +1,10 @@
-# business-intelligence
-Fall repo for in class code
+# ISA 401: Business Intelligence & Data Visualization
 
-\## Tools
+Trey Patrick
+Semester: Fall 2026
 
-* Git
-* *GitHub
-* *R
-* 
+## Course Topics
+- Data Acquisition & Transformation
+- Data Visualization & Communication
+- Exploratory Data Mining
 

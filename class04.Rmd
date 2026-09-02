@@ -1,0 +1,88 @@
+---
+title: "Class 4 Data Structures"
+author: "Trey Patrick"
+date: "2026-09-02"
+output: 
+html_document:
+toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+job = list(
+  title   = "Research Data Scientist, Magic Eye",
+  company = "Google",
+  salary  = list(min = 147000, max = 210000)
+)
+str(job)
+```
+Write one expression to extract each of
+1. The company name.
+2. The maximum salary.
+3. The maximum salary again, using only [[ ]].
+4. The names of the elements in job.
+```{r}
+# 1. Company name (2nd element in job)
+job[[2]]
+# "Google"
+
+# 2. Max salary (salary is 3rd element in job, max is 2nd element inside salary)
+job[[3]][[2]]
+# 210000
+
+# 3. Max salary, using ONLY [[ ]]
+job[[3]][[2]]
+# 210000
+
+# 4. Names of the elements in job
+names(job)
+# "title"   "company" "salary"
+```
+```{r}
+crashes_by_day = c(2020, 2241, 2327, 2285, 2380, 1866, 1664)
+names(crashes_by_day) = c("Mon", "Tue", "Wed", "Thu",
+                          "Fri", "Sat", "Sun")
+crashes_by_day[2]                      # one position
+
+crashes_by_day["Fri"]                  # by name
+crashes_by_day[crashes_by_day > 2300]  # by condition
+
+crashes_by_day[c("Wed", "Fri")] 
+
+crashes_by_day[1:5] # only works for elemeents in a row
+crashes_by_day[] # returns all elemenets
+
+
+
+```
+```{r}
+crashes_df = tibble::tibble(
+  day     = names(crashes_by_day),
+  crashes = crashes_by_day,
+  busy    = crashes_by_day > 2000)
+crashes_df$crashes                     # one column, as a vector
+
+crashes_df[["crashes"]]                # the same vector, by name
+
+crashes_df[1:2, c("day", "crashes")]   # rows 1 to 2, two columns
+```
+
+# Importing data in R
+
+##CSV
+
+```{r}
+oh_jobs = readr::read_csv(
+  file="oh_fred_data.csv"
+)
+
+
+
+dplyr::glimpse(oh_jobs)
+
+
+```
+

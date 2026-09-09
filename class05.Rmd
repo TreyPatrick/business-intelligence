@@ -1,0 +1,51 @@
+---
+title: "class05"
+author: "Trey Patrick"
+date: "2026-09-09"
+output:
+  html_document:
+    toc: true
+    toc_float:
+    numbered_sections: true
+    code_folding: show
+    code_download: true
+    
+---
+
+
+## Game 1 find your seat
+
+```{r game01}
+campus = jsonlite::fromJSON(
+  "https://isa401-find-your-seat.vercel.app/campus.json")
+
+campus$briefing
+
+dplyr::glimpse(campus)
+```
+
+
+```{r}
+fsb = campus[['Farmer']] #campus$farmer or campus[[5]]
+fsb$code
+```
+```{r}
+names(fsb)
+
+sec_floor = campus$Farmer$floors[["2"]]$sections
+sec_floor
+```
+```{r}
+   r = campus$Farmer$floors[["2"]]$rooms
+   r$isa_sections[r$room == "2050"]
+   
+```
+```{r}
+campus$Farmer$floors[["2"]]$rooms |>
+  filter(room == "2050") |>
+  pull(isa_sections)  
+```
+```{r read excel}
+occupation = readxl::read_excel()
+```
+

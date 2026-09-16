@@ -1,0 +1,38 @@
+---
+title: "HW04"
+author: "Trey Patrick"
+date: "2026-09-10"
+output: html_document
+---
+
+```{r}
+con = DBI::dbConnect(RSQLite::SQLite(), "../data/midwest_airbnb.db")
+listings = DBI::dbReadTable(con, "listings")
+```
+
+```{r}
+nrow(listings)
+```
+
+```{r}
+sum(listings$city == "Columbus")
+```
+
+```{r}
+chicago = listings[listings$city == "Chicago", ]
+chicago[order(-chicago$price), c("name", "price")][1:5, ]
+```
+```{r}
+length(unique(chicago$neighbourhood))
+```
+```{r}
+sum(listings$host_is_superhost == "t", na.rm = TRUE)
+```
+```{r}
+sum(listings$price > 1000)
+```
+
+```{r}
+DBI::dbReadTable(con, "listings")
+```
+

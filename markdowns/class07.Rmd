@@ -1,0 +1,66 @@
+---
+title: "class07"
+author: "Trey Patrick"
+date: "2026-09-16"
+output:
+  html_document:
+    toc: TRUE
+    toc_float: TRUE
+    numbered_sections: TRUE
+    code_folding: show
+    code_download: TRUE
+---
+
+
+
+## Demo
+
+```{r demo}
+con = DBI::dbConnect(RSQLite::SQLite(), "../data/scout.db")
+postings = DBI::dbReadTable(con, "scout_postings") |> tibble::as_tibble()
+DBI::dbDisconnect(con)
+
+jobs = postings |>
+  dplyr::select(company, title, location_state, remote, category, posted_at, last_seen_at) |>
+  dplyr::mutate(dplyr::across(dplyr::ends_with("_at"), as.Date),
+                days_open = as.numeric(last_seen_at - posted_at))
+
+## for q1 we need
+## - num of jobs per category
+## - fraction of thos ejobs that are remote
+
+jobs |> 
+  dplyr::group_by(category) |> 
+  dplyr::summarize(
+    postings = dplyr::n(), #counting thenumber of rows per category
+    remote_share = mean(remote) |> round(3)
+    
+  )
+
+## q2: among the full time jobs, which states have the highest remote share?
+
+jobs |>
+  dplyr::filter(category == 'fulltime') |>
+  dplyr::group_by(location_state, category) |>
+  dplyr::summarize(
+    postings = dplyr::n(),
+    remote_share = mean(remote) |> round(3)
+  ) |>
+  dplyr::filter(postings >= 50) |> 
+  dplyr::arrange(dplyr::desc(remote_share))
+
+
+```
+
+
+```{r}
+con = DBI::dbConnect(RSQLite::SQLite(), "../data/midwest_airbnb.db")
+listings = DBI::dbReadTable(con, "listings") |>
+  tibble::as_tibble()
+DBI::dbDisconnect(con)
+dplyr::glimpse(listings)
+```
+
+
+
+

@@ -48,7 +48,16 @@ httr2::request("https://data.usajobs.gov/api/search") |>
   ) |>
   httr2::req_perform() |>
   httr2::resp_body_string() |>
-  jsonlite::fromJSON(flatten = TRUE)
+  jsonlite::fromJSON(flatten = TRUE) -> usa_jobs
+
+usa_jobs_df = usa_jobs$SearchResult$SearchResultItems
+
+usa_jobs_df |>  dplyr::select(
+  title = MatchedObjectDescriptor.PositionTitle,
+  dept = MatchedObjectDescriptor.DepartmentName
+) -> jobs_small
+
+jobs_small |> dplyr::count(dept) |> dplyr::arrange(dplyr::desc(n))
 ```
 
 

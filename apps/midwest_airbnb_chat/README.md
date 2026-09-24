@@ -17,13 +17,13 @@ Ask a question in plain English about 14,887 Airbnb listings in Chicago, Columbu
 ## Example questions
 
 ### 1. Do superhosts charge more per night than other hosts? Show it as a bar chart.
-![Superhost vs. non-superhost prices](screenshots/q1.png)
+![Superhost vs. non-superhost prices](Screenshots/q1.png)
 
 ### 2. Which 10 Chicago neighbourhoods earn the most estimated revenue per listing?
-![Top Chicago neighbourhoods by revenue](screenshots/q2.png)
+![Top Chicago neighbourhoods by revenue](Screenshots/q2.png)
 
 ### 3. Compare the median nightly price by room type in each city.
-![Median price by room type and city](screenshots/q3.png)
+![Median price by room type and city](Screenshots/q3.png)
 
 
 

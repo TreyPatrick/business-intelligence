@@ -361,6 +361,227 @@ availability = DBI::dbReadTable(con, &quot;availability_monthly&quot;) |&gt; tib
 reviews      = DBI::dbReadTable(con, &quot;reviews_monthly&quot;) |&gt; tibble::as_tibble()
 DBI::dbDisconnect(con)</code></pre>
 </div>
+<div id="task-1" class="section level2">
+<h2>Task 1</h2>
+<pre class="r"><code># How many listings each host has
+host_counts = listings |&gt;
+  dplyr::count(host_id, name = &quot;host_listings&quot;)
+
+# A1
+host_counts |&gt;
+  dplyr::filter(host_listings &gt;= 10) |&gt;
+  dplyr::summarize(hosts_10_plus = dplyr::n())</code></pre>
+<pre><code>## # A tibble: 1 × 1
+##   hosts_10_plus
+##           &lt;int&gt;
+## 1           198</code></pre>
+<pre class="r"><code># Join the count back onto every listing
+listings_hosts = listings |&gt;
+  dplyr::left_join(host_counts, by = &quot;host_id&quot;)
+
+# A2
+listings_hosts |&gt;
+  dplyr::group_by(city) |&gt;
+  dplyr::summarize(pct_big_hosts = round(100 * mean(host_listings &gt;= 10), 1))</code></pre>
+<pre><code>## # A tibble: 3 × 2
+##   city        pct_big_hosts
+##   &lt;chr&gt;               &lt;dbl&gt;
+## 1 Chicago              31.9
+## 2 Columbus             37.1
+## 3 Twin Cities          17.2</code></pre>
+</div>
+<div id="task-2" class="section level2">
+<h2>Task 2</h2>
+<pre class="r"><code>family_value = listings |&gt;
+  dplyr::filter(room_type == &quot;Entire home/apt&quot;,
+                accommodates &gt;= 4,
+                number_of_reviews &gt;= 10,
+                review_scores_rating &gt;= 4.8) |&gt;
+  dplyr::mutate(price_per_person = price / accommodates) |&gt;
+  dplyr::group_by(city, neighbourhood) |&gt;
+  dplyr::summarize(median_price_per_person = median(price_per_person),
+                   n_listings = dplyr::n(),
+                   .groups = &quot;drop&quot;) |&gt;
+  dplyr::filter(n_listings &gt;= 20)
+
+# A3: Columbus cheapest per person first
+family_value |&gt;
+  dplyr::filter(city == &quot;Columbus&quot;) |&gt;
+  dplyr::arrange(median_price_per_person)</code></pre>
+<pre><code>## # A tibble: 8 × 4
+##   city     neighbourhood         median_price_per_person n_listings
+##   &lt;chr&gt;    &lt;chr&gt;                                   &lt;dbl&gt;      &lt;int&gt;
+## 1 Columbus North Linden                             32.6         20
+## 2 Columbus South Linden                             41           24
+## 3 Columbus Downtown                                 41.8         22
+## 4 Columbus Near East                                42.8         82
+## 5 Columbus Near North/University                    43.9        302
+## 6 Columbus West Olentangy                           45           35
+## 7 Columbus Near South                               46          129
+## 8 Columbus Clintonville                             47.1         53</code></pre>
+</div>
+<div id="task-3" class="section level2">
+<h2>Task 3</h2>
+<pre class="r"><code>earnings = listings |&gt;
+  dplyr::group_by(city, room_type) |&gt;
+  dplyr::summarize(dplyr::across(c(price, reviews_per_month, estimated_revenue_l365d),
+                                 ~ median(.x, na.rm = TRUE)),
+                   .groups = &quot;drop&quot;)
+
+earnings</code></pre>
+<pre><code>## # A tibble: 12 × 5
+##    city        room_type       price reviews_per_month estimated_revenue_l365d
+##    &lt;chr&gt;       &lt;chr&gt;           &lt;dbl&gt;             &lt;dbl&gt;                   &lt;dbl&gt;
+##  1 Chicago     Entire home/apt 272.              1.98                   27057 
+##  2 Chicago     Hotel room      373.              0.335                      0 
+##  3 Chicago     Private room     90.9             0.93                    4684 
+##  4 Chicago     Shared room      49.8             0.83                     728.
+##  5 Columbus    Entire home/apt 208               1.8                    21643 
+##  6 Columbus    Hotel room       95               1                          0 
+##  7 Columbus    Private room     69               0.835                   4320 
+##  8 Columbus    Shared room      46               2.77                   10488 
+##  9 Twin Cities Entire home/apt 268.              1.46                   19619 
+## 10 Twin Cities Hotel room      217               0.19                       0 
+## 11 Twin Cities Private room     87               0.61                    2162 
+## 12 Twin Cities Shared room      51               0.98                    4704</code></pre>
+</div>
+<div id="task-4" class="section level2">
+<h2>Task 4</h2>
+<pre class="r"><code>concentration = listings |&gt;
+  dplyr::arrange(dplyr::desc(estimated_revenue_l365d)) |&gt;
+  dplyr::group_by(city) |&gt;
+  dplyr::mutate(top_10_pct = dplyr::row_number() &lt;= ceiling(0.10 * dplyr::n())) |&gt;
+  dplyr::summarize(pct_revenue_top_10 = round(100 * sum(estimated_revenue_l365d[top_10_pct]) /
+                                                 sum(estimated_revenue_l365d), 1))
+
+concentration</code></pre>
+<pre><code>## # A tibble: 3 × 2
+##   city        pct_revenue_top_10
+##   &lt;chr&gt;                    &lt;dbl&gt;
+## 1 Chicago                   40.7
+## 2 Columbus                  36.1
+## 3 Twin Cities               40.3</code></pre>
+</div>
+<div id="task-5" class="section level2">
+<h2>Task 5</h2>
+<pre class="r"><code>october = availability |&gt;
+  dplyr::filter(month == &quot;2026-10&quot;)
+
+year_ahead = listings |&gt;
+  dplyr::filter(room_type == &quot;Entire home/apt&quot;) |&gt;
+  dplyr::inner_join(october, by = &quot;id&quot;) |&gt;
+  dplyr::mutate(mostly_taken = nights_available &lt; 0.5 * nights_in_month) |&gt;
+  dplyr::group_by(city) |&gt;
+  dplyr::summarize(pct_mostly_taken = round(100 * mean(mostly_taken), 1),
+                   n_homes = dplyr::n()) |&gt;
+  dplyr::arrange(pct_mostly_taken)
+
+year_ahead</code></pre>
+<pre><code>## # A tibble: 3 × 3
+##   city        pct_mostly_taken n_homes
+##   &lt;chr&gt;                  &lt;dbl&gt;   &lt;int&gt;
+## 1 Columbus                19      2076
+## 2 Twin Cities             20      3703
+## 3 Chicago                 21.8    5538</code></pre>
+</div>
+<div id="task-6" class="section level2">
+<h2>Task 6</h2>
+<pre class="r"><code>demand = reviews |&gt;
+  dplyr::inner_join(dplyr::select(listings, id, city), by = &quot;id&quot;) |&gt;
+  dplyr::filter(month &gt;= &quot;2025-07&quot;, month &lt;= &quot;2026-06&quot;) |&gt;
+  dplyr::group_by(city, month) |&gt;
+  dplyr::summarize(total_reviews = sum(reviews), .groups = &quot;drop&quot;)
+
+# Twin Cities businest month first
+twin_cities = demand |&gt;
+  dplyr::filter(city == &quot;Twin Cities&quot;) |&gt;
+  dplyr::arrange(dplyr::desc(total_reviews))
+
+twin_cities</code></pre>
+<pre><code>## # A tibble: 12 × 3
+##    city        month   total_reviews
+##    &lt;chr&gt;       &lt;chr&gt;           &lt;int&gt;
+##  1 Twin Cities 2025-08          7399
+##  2 Twin Cities 2025-07          7072
+##  3 Twin Cities 2026-05          6945
+##  4 Twin Cities 2025-09          6330
+##  5 Twin Cities 2025-10          6318
+##  6 Twin Cities 2026-06          5729
+##  7 Twin Cities 2025-11          5165
+##  8 Twin Cities 2026-04          5143
+##  9 Twin Cities 2026-03          4459
+## 10 Twin Cities 2025-12          3962
+## 11 Twin Cities 2026-01          3699
+## 12 Twin Cities 2026-02          3119</code></pre>
+<pre class="r"><code># A8 and A9
+twin_cities |&gt;
+  dplyr::summarize(busiest_month = month[which.max(total_reviews)],
+                   ratio_busiest_to_quietest = round(max(total_reviews) / min(total_reviews), 2))</code></pre>
+<pre><code>## # A tibble: 1 × 2
+##   busiest_month ratio_busiest_to_quietest
+##   &lt;chr&gt;                             &lt;dbl&gt;
+## 1 2025-08                            2.37</code></pre>
+</div>
+<div id="task-7" class="section level2">
+<h2>Task 7</h2>
+<pre class="r"><code>superhost = listings |&gt;
+  dplyr::filter(room_type == &quot;Entire home/apt&quot;,
+                !is.na(host_is_superhost)) |&gt;
+  dplyr::group_by(city, host_is_superhost) |&gt;
+  dplyr::summarize(median_price = median(price),
+                   median_rating = median(review_scores_rating, na.rm = TRUE),
+                   median_reviews_per_month = median(reviews_per_month, na.rm = TRUE),
+                   n_homes = dplyr::n(),
+                   .groups = &quot;drop&quot;)
+
+superhost</code></pre>
+<pre><code>## # A tibble: 6 × 6
+##   city       host_is_superhost median_price median_rating median_reviews_per_m…¹
+##   &lt;chr&gt;      &lt;chr&gt;                    &lt;dbl&gt;         &lt;dbl&gt;                  &lt;dbl&gt;
+## 1 Chicago    f                         248           4.77                   1.62
+## 2 Chicago    t                         292.          4.92                   2.21
+## 3 Columbus   f                         184.          4.75                   1.10
+## 4 Columbus   t                         225           4.92                   2.49
+## 5 Twin Citi… f                         268.          4.85                   0.98
+## 6 Twin Citi… t                         267.          4.94                   1.77
+## # ℹ abbreviated name: ¹​median_reviews_per_month
+## # ℹ 1 more variable: n_homes &lt;int&gt;</code></pre>
+<pre class="r"><code># Premim: superhost median price minus otherhost median price
+premium = superhost |&gt;
+  dplyr::group_by(city) |&gt;
+  dplyr::summarize(premium = median_price[host_is_superhost == &quot;t&quot;] -
+                             median_price[host_is_superhost == &quot;f&quot;])
+
+premium</code></pre>
+<pre><code>## # A tibble: 3 × 2
+##   city        premium
+##   &lt;chr&gt;         &lt;dbl&gt;
+## 1 Chicago       43.8 
+## 2 Columbus      40.5 
+## 3 Twin Cities   -1.38</code></pre>
+</div>
+<div id="task-8" class="section level2">
+<h2>Task 8</h2>
+<pre class="r"><code>lost = listings |&gt;
+  dplyr::anti_join(availability, by = &quot;id&quot;)
+
+# A10: listings with no rows in availability
+lost |&gt;
+  dplyr::summarize(n_lost = dplyr::n())</code></pre>
+<pre><code>## # A tibble: 1 × 1
+##   n_lost
+##    &lt;int&gt;
+## 1    456</code></pre>
+<pre class="r"><code># Which city loses the most 
+lost |&gt;
+  dplyr::count(city, sort = TRUE)</code></pre>
+<pre><code>## # A tibble: 3 × 2
+##   city            n
+##   &lt;chr&gt;       &lt;int&gt;
+## 1 Chicago       267
+## 2 Twin Cities   120
+## 3 Columbus       69</code></pre>
+</div>
 
 
 

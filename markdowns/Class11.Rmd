@@ -1,5 +1,93 @@
 ---
-title: "Class11"
-output: html_document
+title: "Class11: Scraping multiple webpages"
+date: "2026-09-09"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    numbered_sections: true
+    code_folding: show
+    code_download: true
 ---
+
+[ISA](https://bulletin.miamioh.edu/courses-instruction/isa/) and
+[MKT](https://bulletin.miamioh.edu/courses-instruction/mkt/).
+
+
+Note that if you are doing it for just a few departments you ccan just repeat your code;
+however this is bad practice. Software engineers refer to this as **DRY**
+
+```{r bulletin}
+
+dept_abbr = c('acc', 'bus', 'isa', 'mkt') # extending the example to 4 depts
+
+
+for (dept_name in dept_abbr){
+  cat(rep("-", 25), "\n", sep = "")
+  print(dept_name)
+  
+
+
+dept_url = paste0(
+  "https://bulletin.miamioh.edu/courses-instruction/", dept_name, "/")
+
+webpage = rvest::read_html(dept_url)
+
+webpage |> rvest::html_elements("strong") |> rvest::html_text2() -> titles
+webpage |> 
+  rvest::html_elements("#sc_sccoursedescs > div > p.courseblockdesc") |>
+  rvest::html_text2()->descs
+
+df = data.frame(title = titles, desc = descs)
+df[1,1] |> print()
+
+ courses_df = data.frame()
+ courses_df = rbind(courses_df, df)
+ cat(rep("-", 25), "\n", sep = "")
+
+}
+```
+
+
+## re-examine prior example 'purrr' package
+
+```{r}
+scrape_mu_bullitin = function(dept_url){
+
+
+webpage = rvest::read_html(dept_url)
+
+webpage |> rvest::html_elements("strong") |> rvest::html_text2() -> titles
+webpage |> 
+  rvest::html_elements("#sc_sccoursedescs > div > p.courseblockdesc") |>
+  rvest::html_text2()->descs
+
+df = data.frame(title = titles, desc = descs)
+
+return(df)
+}
+
+test = scrape_mu_bullitin("https://bulletin.miamioh.edu/courses-instruction/mkt/")
+
+dept_abbr = c('acc', 'bus', 'isa', 'mkt')
+my_urls = paste0(
+  "https://bulletin.miamioh.edu/courses-instruction/", #single chr string
+  dept_abbr, # vector 4 obs
+  "/" # single string chr
+  )
+print(my_urls)
+
+courses_df_from_purrr = purrr::map_df(.x = my_urls, .f = scrape_mu_bullitin)
+
+head(courses_df_from_purrr)
+```
+
+
+## scraping plane crash data
+
+```{r}
+year = 2026
+plane_url = paste0("https://www.planecrashinfo.com/", year, "/", year, ".htm")
+print(plane_url)
+```
 

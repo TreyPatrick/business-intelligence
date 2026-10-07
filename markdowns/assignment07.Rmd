@@ -1,0 +1,35 @@
+---
+title: "ISA 401: FSB Directory Scrape"
+author: "Trey"
+output: html_document
+---
+
+## Question 1
+
+```{r robots}
+robotstxt::paths_allowed(paths = "/fsb/directory/",
+                         domain = "miamioh.edu", bot = "*")
+```
+
+```{r q1}
+webpage = httr2::request("https://miamioh.edu/fsb/directory/?up=/query/all/all/all/all") |>
+  httr2::req_user_agent("ISA 401 class scraper (patricrw@miamioh.edu)") |>
+  httr2::req_perform() |>
+  httr2::resp_body_html()
+
+rows = webpage |> rvest::html_elements("table tr")
+
+fsb_df = data.frame(
+  department = rows |> rvest::html_element("td") |> rvest::html_text2() |> stringr::str_squish(),
+  name       = rows |> rvest::html_element("strong a") |> rvest::html_text2() |> stringr::str_squish(),
+  position   = rows |> rvest::html_element("i") |> rvest::html_text2() |> stringr::str_squish(),
+  website    = rows |> rvest::html_element("strong a") |> rvest::html_attr("href")
+)
+
+fsb_df = fsb_df[fsb_df$department %in% c(
+  "Accountancy", "Economics", "Entrepreneurship", "Finance",
+  "Information Systems & Analytics", "Marketing", "Management"), ]
+fsb_df$name = sub("Staffsfx.*$", "", fsb_df$name)
+
+head(fsb_df)
+```

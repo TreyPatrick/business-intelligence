@@ -88,6 +88,13 @@ head(courses_df_from_purrr)
 ```{r}
 year = 2026
 plane_url = paste0("https://www.planecrashinfo.com/", year, "/", year, ".htm")
+
+webpage = rvest::read_html(plane_url)
+webpage |> rvest::html_elements("table") |> rvest::html_table() -> titles
+webpage |> 
+  rvest::html_elements("#sc_sccoursedescs > div > p.courseblockdesc") |>
+  rvest::html_text2()->descs
+
 print(plane_url)
 ```
 

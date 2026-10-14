@@ -1,0 +1,174 @@
+---
+title: "Class 15: Fundamentals of Data Visualization"
+author: "Trey Patrick"
+date: "2026-10-14"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    code_folding: show
+    code_download: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+> Phase II starts here (Data Visualization & Communication, Oct 14 to Exam 02 on Nov 16). There was no R in class today; these are my notes from the slides, plus a few small chunks that reproduce the examples. Monday (Oct 19) turns these principles into ggplot2 code.
+
+**Learning objectives:** (1) explain Tufte's principles of graphical excellence, (2) select visual encodings based on data types, (3) apply color theory and accessibility guidelines, (4) identify and critique misleading visualizations.
+
+# Part 1: Graphical Excellence
+
+## Terrible charts (opening activity)
+
+- **Russia vs Ukraine defense budgets (two squares):** the values are encoded by **area**, and we judge area poorly. A 14× bigger budget doesn't look 14× bigger.
+- **White House economic-growth bar chart:** the highlighted bar and the non-zero / inconsistent scale exaggerate the difference (it was later corrected).
+- **Fox News share of Christians, 2009 vs 2019:** the y-axis doesn't start at zero, so the bar heights exaggerate the change.
+
+## What should graphs do? (Tufte, 2001, p. 13)
+
+1. **Show the data.**
+2. Lead the viewer to think about the **substance**, not the design.
+3. **Avoid distorting** what the data have to say.
+4. Present **many numbers in a small space**.
+5. Make **large datasets coherent**.
+6. **Encourage the eye to compare** (put values on a common scale).
+7. Reveal the data at **several levels of detail** (overview + fine structure).
+8. Serve a **clear purpose**: description, exploration, tabulation, or decoration.
+9. Be **closely integrated** with the statistical and verbal descriptions (titles and labels say what the graph shows).
+
+## Show the data: Anscombe's quartet
+
+Anscombe (1973): "a computer should **make both calculations and graphs**." Four datasets with the same summaries, but completely different pictures.
+
+```{r anscombe}
+quartet = datasets::anscombe |>
+  tidyr::pivot_longer(dplyr::everything(),
+                      names_to = c(".value", "set"),
+                      names_pattern = "(.)(.)") |>    # x1 -> x + set 1, y1 -> y + set 1
+  dplyr::mutate(set = paste("Set", set))
+
+# same means, SDs, and correlation (to 2 decimals) in every set
+quartet |>
+  dplyr::group_by(set) |>
+  dplyr::summarise(mean_x = mean(x), sd_x = sd(x),
+                   mean_y = mean(y), sd_y = sd(y),
+                   correlation = cor(x, y)) |>
+  dplyr::mutate(dplyr::across(-set, \(v) round(v, 2)))
+```
+
+```{r anscombe_plot, fig.height=3.2, fig.width=9}
+ggplot2::ggplot(quartet, ggplot2::aes(x, y)) +
+  ggplot2::geom_point(size = 1.8) +
+  ggplot2::geom_smooth(method = lm, se = FALSE, formula = y ~ x, color = "#C3142D") +
+  ggplot2::facet_wrap(~set, nrow = 1) +
+  ggplot2::theme_bw()
+```
+
+Set 1 is a noisy line, Set 2 is a curve, Set 3 is a line with one outlier, and in Set 4 one point sets the slope. The fitted line is the same in all four. The **Datasaurus** (Matejka & Fitzmaurice, 2017) does the same thing with a dinosaur.
+
+## Substance: Playfair's cities
+
+Bubble chart of 22 European cities → hard to rank because we compare **areas**. Better: a **dot chart**, where population is a **position** on one common axis.
+
+```{r playfair, eval=FALSE}
+# needs internet; the data are Playfair's populations (thousands) from the late 1700s
+playfair = read.table("http://www.stat.uiowa.edu/~luke/data/Playfair") |>
+  tibble::rownames_to_column(var = "city") |>
+  tibble::as_tibble() |>
+  dplyr::arrange(dplyr::desc(population))
+
+playfair |>
+  ggplot2::ggplot(ggplot2::aes(x = population, y = stats::reorder(city, population))) +
+  ggplot2::geom_point() +
+  ggplot2::scale_x_continuous(labels = scales::comma) +
+  ggplot2::labs(x = "Population (thousands)", y = "City") +
+  ggplot2::theme_bw()
+```
+
+## Avoid distortion: the lie factor
+
+$$\text{Lie factor} = \frac{\text{size of effect shown in the graphic}}{\text{size of effect in the data}}$$
+
+Both "effects" are percent changes: (new − old) / old. Tufte's fuel-economy chart:
+
+```{r lie_factor}
+data_change    = (27.5 - 18) / 18     # 18 mpg (1978) -> 27.5 mpg (1985): +53%
+graphic_change = (5.3 - 0.6) / 0.6    # line 0.6 in -> 5.3 in: +783%
+lie_factor = graphic_change / data_change
+round(c(data_change = data_change, graphic_change = graphic_change, lie_factor = lie_factor), 2)
+```
+
+- **Lie factor = 1** means the graphic is honest. Tufte treats **> 1.05 or < 0.95** as substantial distortion. This chart exaggerates the change about **15×**.
+- Other distortion examples: Tufte's bar chart with a non-zero baseline and pictures; Fox Business's top-tax-rate chart with the **y-axis starting at 34%**.
+- **Summary:** label clearly, keep the lie factor near 1, and make variation come from the **data**, not the design.
+
+# Part 2: Data-Ink and Chartjunk
+
+- **Data-ink** = the non-erasable ink that shows the data.
+- **Data-ink ratio** = data-ink / total ink = **1 − (share of the graphic you could erase without losing data)**. Ask: *what could I erase without losing any data?*
+- **Chartjunk** = extraneous visual elements that distract from the message (heavy gridlines, 3-D, backgrounds, decoration). Tim Bray's 6-step example strips it away one piece at a time.
+- **But it's a guideline, not a law.** Hanrahan: aesthetics, style, playfulness and vividness have value. **Bateman et al. (2010):** embellished charts were described no less accurately and **remembered better** 2–3 weeks later. **Distortion is never OK; decoration is a judgment call.**
+
+# Part 3: Data Types and Visual Encoding
+
+## Stevens (1946): scales of measurement
+
+| Type | Meaning | Example |
+|---|---|---|
+| **Nominal** | values are = or ≠ (labels) | apples, bananas, oranges |
+| **Ordinal** | values have an order (<) | small, medium, large |
+| **Interval** (quantitative) | differences mean something; **zero is arbitrary** | dates, latitude/longitude, °F |
+| **Ratio** (quantitative) | **zero is fixed**, so ratios mean something | length, weight, cost, counts |
+
+**Test:** does "twice as much" make sense? $40 vs $20 → yes, so it's **ratio**. 40°F vs 20°F → no, so it's **interval**.
+
+**Why it matters:** a bar's length shows a value as a distance from zero, which works for **ratio** data. For **interval** data, use positions (dots, lines) instead of bars.
+
+## In-class activity: shipping data
+
+| Column | Type | Why |
+|---|---|---|
+| Order ID | Nominal | a label; averaging IDs means nothing |
+| Order Date / Ship Date | Interval | the difference (days to ship) means something; a ratio of dates doesn't |
+| Order Priority | Ordinal | urgent > high > medium > low, but the gaps aren't equal |
+| Product Container | Nominal | box sizes look ordered, but "wrap bag" has no place in that order |
+| Product Cost | Ratio | $0 = no cost, so $40 is twice $20 |
+
+The type comes from **what the values mean**, not how they're stored. The same column (e.g., temperature) can be quantitative, ordinal (hot/warm/cold) or nominal (burned / not burned), depending on the question.
+
+## Visual variables and precision
+
+- **Bertin (1967)** visual variables: position, size, shape, value (lightness), color hue, orientation, texture.
+- **Matching variables to data types:** position works for everything; hue and shape suit **nominal** data; lightness and size suit **ordinal** and **quantitative** data.
+- **Precision ranking (Franconeri et al., 2021):** **position** (most precise) > **length** > **area / angle** > **color intensity** (least precise).
+- That's why Russia's squares and Playfair's bubbles (area) lose to a dot chart (position).
+
+# Part 4: Color, Used Sparingly
+
+- **Simultaneous contrast:** the same gray looks lighter or darker depending on what surrounds it.
+- **Color vision deficiency:** "About 1 in 12 men have color vision deficiency" (National Eye Institute). Deuteranopia (reduced green sensitivity) is the most common type. **Red/green palettes collapse** for those readers. The **Okabe-Ito** palette keeps groups apart.
+- **Fix:** use color sparingly and choose colorblind-safe palettes (colorbrewer2.org with "colorblind safe" checked).
+- **ColorBrewer scale types:**
+  - **Sequential:** ordered values, low → high
+  - **Diverging:** there's a meaningful midpoint (e.g., above / below average)
+  - **Qualitative:** nominal categories
+
+```{r okabe_ito, fig.height=3.2, fig.width=6}
+okabe_ito = c("#E69F00", "#56B4E9", "#009E73")   # colorblind-safe
+ggplot2::ggplot(datasets::iris, ggplot2::aes(Sepal.Length, Petal.Length, color = Species)) +
+  ggplot2::geom_point() +
+  ggplot2::scale_color_manual(values = okabe_ito) +
+  ggplot2::theme_bw()
+```
+
+# Summary
+
+- Show the data, keep the focus on substance, avoid distortion (Anscombe, Playfair, lie factor, data-ink ratio).
+- Choose encodings from the data type (nominal, ordinal, interval, ratio). **Position** is perceived most accurately.
+- Use color sparingly; match sequential / diverging / qualitative scales to the data; design for color-blind readers.
+- Critique misleading charts: non-zero baselines, area encodings, a lie factor far from 1.
+
+**Reading before Monday:** de Boer (2021), *The Lie Factor and the Baseline Paradox* (Nightingale). Wilke, *Fundamentals of Data Visualization*, ch. 4 (color scales) and ch. 19 (pitfalls of color use). Skim if curious: Bateman et al. (2010), *Useful junk?*

@@ -1,0 +1,134 @@
+---
+title: "Class 13: Tidy and Technically Correct Data"
+author: "Trey Patrick"
+date: "2026-10-07"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    code_folding: show
+    code_download: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+# Two Definitions (notes)
+
+**Tidy data** is about the *shape* of a table (Wickham, 2014):
+
+1. Each **variable** is a column.
+2. Each **observation** is a row.
+3. Each **value** is a cell. For example, `67/67(0)` is three values in one cell, so it breaks this rule.
+
+**Technically correct data** is about *names and types* (de Jonge & van der Loo, 2013):
+
+1. Column names you can type without quotes or backticks (letters, numbers, `_`, starting with a letter).
+2. Each column is stored as the type that matches what it holds (dates as `<date>`, counts as `<int>`).
+
+A table can be one without the other. A price stored as `"$119.00"` is tidy but **not** technically correct. A third stage, **consistent data** (missing or impossible values), was named in class but not taught.
+
+Why it matters: every dplyr verb from Class 07 works on columns. `sum(ground)` needs a column that holds only that number.
+
+# The Crash Table: Raw to Tidy (in-class demo)
+
+Diagnosing the raw table from Class 12 (`rvest::html_table()`): it **fails all six checks**.
+
+- **Location / Operator** and **Aircraft Type / Registration** each hold two values. `html_table()` drops the `<br>`, so the two values run together (e.g., "Washington DCAmerican Eagle").
+- **Fatalities** holds three values: fatalities in the air / people aboard (fatalities on the ground).
+- The column names contain spaces and a slash.
+- Every column is `chr`, including the date and the counts.
+
+**The fix:** read each column with `html_text2()`, which keeps the `<br>` as `\n`, then split at the `\n`.
+
+```{r crashes}
+year = 2025
+crash_url = paste0('https://www.planecrashinfo.com/', year, '/', year, '.htm')
+
+# encoding fix from Class 11 / 12 (otherwise you get weird characters)
+crash_page = rvest::read_html(crash_url, encoding = "ISO-8859-1")
+
+# one CSS selector per column; nth-child(k) = the k-th cell of every row
+# (selector from the Inspector; dropped the nth-child on tr so we get ALL rows)
+date = crash_page |> rvest::html_elements("tr > td:nth-child(1)") |> rvest::html_text2()
+location_operator = crash_page |>
+  rvest::html_elements("tr > td:nth-child(2) > font") |>
+  rvest::html_text2()
+aircraft_registeration = crash_page |>
+  rvest::html_elements("tr > td:nth-child(3) > font") |>
+  rvest::html_text2()
+fatalities = crash_page |>
+  rvest::html_elements("tr > td:nth-child(4) > font") |>
+  rvest::html_text2()
+
+df = tibble::tibble(date, location_operator, aircraft_registeration, fatalities) |>
+  dplyr::slice(-1) |>    # first row holds the page's column names
+  # no sep -> splits at every non-letter/number: "/", "(" and ")"
+  # 67/67(0) -> 67, 67, 0, "" -> warning "Expected 3 pieces. Additional pieces discarded"
+  # the discarded 4th piece is EMPTY, so nothing is lost
+  tidyr::separate(fatalities, into = c("air_fatalities", "passengers", "ground")) |>
+  # these two use the line break that html_text2() kept
+  tidyr::separate(location_operator, into = c("location", "operator"), sep = "\n") |>
+  tidyr::separate(aircraft_registeration, into = c("aircraft_type", "registration"), sep = "\n")
+
+dplyr::glimpse(df)   # tidy now: 8 columns... but ALL <chr>
+```
+
+# Tidy to Technically Correct (Part 4)
+
+```{r types}
+crash_clean = df |>
+  dplyr::mutate(
+    date = lubridate::dmy(date),                        # "29 Jan 2025" -> 2025-01-29 (d-m-y order)
+    dplyr::across(c(air_fatalities, passengers, ground),
+                  as.integer)                           # counts are whole numbers
+  )
+
+dplyr::glimpse(crash_clean)   # date <date>, 3 counts <int>, 4 text columns <chr>
+sum(crash_clean$ground)       # now this works
+```
+
+Notes:
+
+- `lubridate::dmy()`: the function name is the order of the parts in the text. There's also `mdy()` ("Sep 06, 2025") and `ymd()` ("2026-01-01").
+- `dplyr::across()` (Class 07) applies one function to several columns.
+- No warning appeared from `as.integer()`, so every 2025 count was a number. In other years the page writes `?` for an unknown count, and `as.integer()` would turn it into `NA` with a warning. That's a **consistent data** question.
+- Three states of one table: **raw** (4 text columns) → **tidy** (8 text columns) → **technically correct** (8 columns: 1 date, 3 integers).
+
+# A Tour of tidyr (recognize these, not tested in code)
+
+| Function | What it does |
+|---|---|
+| `tidyr::pivot_longer()` | columns become rows (wide → long; R/ggplot2 like long) |
+| `tidyr::pivot_wider()` | rows become columns (long → wide; people like wide in reports) |
+| `tidyr::separate()` | one column → several (rows unchanged) |
+| `tidyr::unite()` | several columns → one, with ONE separator (`67/67/0`, not `67/67(0)`) |
+
+The crash table only needs `separate()` (3 times). It already had one row per crash.
+
+```{r tidyr_tour}
+skills_wide = readr::read_csv("../data/skill_trends_wide.csv") |>
+  dplyr::filter(Skill %in% c("Python", "SQL", "Tableau")) |>
+  dplyr::select(Skill, "2024", "2025", "2026") |>
+  dplyr::mutate(dplyr::across(-Skill, \(x) round(x, 2)))
+skills_wide                      # 3 rows: year is spread across column NAMES (not tidy)
+
+skills_long = skills_wide |>
+  tidyr::pivot_longer(cols = c("2024", "2025", "2026"),
+                      names_to = "year", values_to = "share")
+skills_long                      # 9 rows: one per skill-year (tidy)
+
+skills_long |>
+  tidyr::pivot_wider(names_from = year, values_from = share)   # back to wide
+
+# separate() and unite() on two crash cells
+crash_two = tibble::tibble(location = c("Washington DC", "Louisville, Kentucky"),
+                           fatalities = c("67/67(0)", "3/3(12)"))
+crash_three = crash_two |>
+  tidyr::separate(fatalities, into = c("air_fatalities", "passengers", "ground"))
+crash_three
+crash_three |>
+  tidyr::unite(col = "fatalities", air_fatalities, passengers, ground, sep = "/")
+```
